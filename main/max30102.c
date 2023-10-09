@@ -16,15 +16,15 @@ char outStr[1500];
 
 void max30102_init() {
     uint8_t data;
-    data = ( 0x2 << 5);  //sample averaging 0=1,1=2,2=4,3=8,4=16,5+=32
+    data = ( 0x2 << 5);         // Set sample averaging 0=1,1=2,2=4,3=8,4=16,5+=32
     i2c_write(I2C_ADDR_MAX30102, 0x08, data);
-    data = 0x03;                //mode = red and ir samples
+    data = 0x03;                // Set mode to red and IR samples
     i2c_write(I2C_ADDR_MAX30102, 0x09, data);
-    data = ( 0x3 << 5) + ( 0x3 << 2 ) + 0x3; //first and last 0x3, middle smap rate 0=50,1=100,etc 
+    data = ( 0x3 << 5) + ( 0x3 << 2 ) + 0x3; // Set ADC range, sample rate, and pulse width
     i2c_write(I2C_ADDR_MAX30102, 0x0a, data);
-    data = 0xd0;                //ir pulse power
+    data = 0xd0;                // Set IR pulse power
     i2c_write(I2C_ADDR_MAX30102, 0x0c, data);
-    data = 0xa0;                //red pulse power
+    data = 0xa0;                // Set red pulse power
     i2c_write(I2C_ADDR_MAX30102, 0x0d, data);
 }
 
@@ -39,6 +39,7 @@ void max30102_task () {
     float hrarray[5],spo2array[5];
     int hrarraycnt = 0;
     while(1){
+        // Update LED pulse amplitude if needed
         if(lirpower!=irpower){
             data = (uint8_t) irpower;
             i2c_write(I2C_ADDR_MAX30102, 0x0d,  data); 
@@ -49,6 +50,8 @@ void max30102_task () {
             i2c_write(I2C_ADDR_MAX30102, 0x0c,  data); 
             lrpower=rpower;
         }
+
+        // Reading FIFO data pointers
         i2c_read(I2C_ADDR_MAX30102, 0x04, &wptr, 1);
         i2c_read(I2C_ADDR_MAX30102, 0x06, &rptr, 1);
         
@@ -80,29 +83,38 @@ void max30102_task () {
             //}
 
             //printf("%8.1f %8.1f %8.1f %8.3f\n", -1.0 * firyv[0], -1.0 * firyv[2], -1.0 * firyv[4], meastime-lastmeastime); 
+
+            // Compute and display heart rate and SpO2 using detected peaks
             if (-1.0 * firyv[4] >= 100 && -1.0 * firyv[2] > -1*firyv[0] && -1.0 * firyv[2] > -1*firyv[4] && meastime-lastmeastime > 0.5){
-               hrarray[hrarraycnt % 5] = 60 / (meastime - lastmeastime);
-               spo2array[hrarraycnt % 5] = 110 - 25 * ((fredyv[4]/fredxv[4]) / (firyv[4]/firxv[4]));
-               if(spo2array[hrarraycnt % 5] > 100)spo2array[hrarraycnt % 5]=99.9;
-               printf ("%6.2f  %4.2f     hr= %5.1f     spo2= %5.1f\n", meastime, meastime - lastmeastime, heartrate, pctspo2);
-               lastmeastime = meastime;
-	           hrarraycnt++;
-	           heartrate = (hrarray[0]+hrarray[1]+hrarray[2]+hrarray[3]+hrarray[4]) / 5;
-	           if (heartrate < 40 || heartrate > 150) heartrate = 0;
-	           pctspo2 = (spo2array[0]+spo2array[1]+spo2array[2]+spo2array[3]+spo2array[4]) / 5;
-	           if (pctspo2 < 50 || pctspo2 > 101) pctspo2 = 0;
+                hrarray[hrarraycnt % 5] = 60 / (meastime - lastmeastime);
+                spo2array[hrarraycnt % 5] = 110 - 25 * ((fredyv[4]/fredxv[4]) / (firyv[4]/firxv[4]));
+
+                // Limit SpO2 to 100
+                if(spo2array[hrarraycnt % 5] > 100)spo2array[hrarraycnt % 5]=99.9;
+
+                // Displaying the intermediate result
+                printf ("%6.2f  %4.2f     hr= %5.1f     spo2= %5.1f\n", meastime, meastime - lastmeastime, heartrate, pctspo2);
+                lastmeastime = meastime;
+	            hrarraycnt++;
+
+                // Averaging recent 5 HR and SpO2 values and ensuring they are within plausible range
+	            heartrate = (hrarray[0]+hrarray[1]+hrarray[2]+hrarray[3]+hrarray[4]) / 5;              
+	            if (heartrate < 40 || heartrate > 150) heartrate = 0;
+	            pctspo2 = (spo2array[0]+spo2array[1]+spo2array[2]+spo2array[3]+spo2array[4]) / 5;
+
+	            if (pctspo2 < 50 || pctspo2 > 101) pctspo2 = 0;
             }
-            
-            char tmp[32];
-            countedsamples++;
-            if(countedsamples < 100){
-                if(raworbp == 0){
-                    snprintf(tmp, sizeof tmp, "%5.1f,%5.1f,", -1* fredyv[4], -1* firyv[4] ); 
-                } else {
-                    snprintf(tmp, sizeof tmp, "%5.1f,%5.1f,", fredxv[4], firxv[4] ); 
+                // Output string
+                char tmp[32];
+                countedsamples++;
+                if(countedsamples < 100){
+                    if(raworbp == 0){
+                        snprintf(tmp, sizeof tmp, "%5.1f,%5.1f,", -1* fredyv[4], -1* firyv[4] ); 
+                    } else {
+                        snprintf(tmp, sizeof tmp, "%5.1f,%5.1f,", fredxv[4], firxv[4] ); 
+                    }
+                    strcat (outStr, tmp);  
                 }
-                strcat (outStr, tmp);  
-            }
         }
     }
 }

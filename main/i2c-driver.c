@@ -8,6 +8,7 @@
 #include "max30102.h"
 #include "i2c-driver.h"
 
+// Initialize I2C communication as Master
 void i2c_init() {
     int i2c_master_port = I2C_MASTER_NUM;
     i2c_config_t conf = {
@@ -22,6 +23,7 @@ void i2c_init() {
     i2c_driver_install(i2c_master_port, conf.mode, 0, 0, 0);
 }
 
+// Write byte data to a specific I2C address and register
 esp_err_t i2c_write(uint8_t addr, uint8_t reg, uint8_t data) {
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
@@ -34,6 +36,7 @@ esp_err_t i2c_write(uint8_t addr, uint8_t reg, uint8_t data) {
     return ret;
 }
 
+// Read byte data from a specific I2C address and register
 esp_err_t i2c_read(uint8_t addr, uint8_t reg, uint8_t* data, size_t data_len) {
     if (data_len == 0) {
         return ESP_OK;
