@@ -1,9 +1,5 @@
 #include <stdio.h>
 #include <string.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "driver/i2c.h"
-#include "esp_log.h"
 #include "nvs_flash.h"
 #include "i2c-driver.h"
 #include "max30102.h"
